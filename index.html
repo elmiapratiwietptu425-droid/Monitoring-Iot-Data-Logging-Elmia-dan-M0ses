@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>IoT Monitoring Dashboard</title>
+  <link rel="stylesheet" href="style.css" />
+  <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet"/>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
+</head>
+<body>
+
+  <!-- ALERT OVERLAY -->
+  <div id="alertOverlay" class="alert-overlay hidden">
+    <div class="alert-content">
+      <span class="alert-icon">⚠</span>
+      <p id="alertMsg">KONDISI BAHAYA TERDETEKSI!</p>
+    </div>
+  </div>
+
+  <div class="app-shell">
+
+    <!-- SNOW CANVAS -->
+    <canvas id="snowCanvas"></canvas>
+
+    <!-- HEADER -->
+    <header class="topbar">
+      <div class="topbar-left">
+        <div class="logo-mark"></div>
+        <div class="brand-block">
+          <h1 class="brand">Temperature &amp; Air Quality Monitoring</h1>
+          <p class="brand-sub">created by Elmia Pratiwie &amp; Moses Alexander</p>
+        </div>
+      </div>
+      <div class="topbar-right">
+        <div class="datetime-block">
+          <span id="clockDate" class="clock-date">--/--/----</span>
+          <span id="clockTime" class="clock-time">--:--:--</span>
+        </div>
+        <div id="liveIndicator" class="live-badge offline">
+          <span class="live-dot"></span>
+          <span id="liveLabel">OFFLINE</span>
+        </div>
+      </div>
+    </header>
+
+    <main class="main-content">
+
+      <!-- SENSOR CARDS -->
+      <section class="sensor-section">
+        <p class="section-label">Data Sensor Real-Time</p>
+        <div class="sensor-grid">
+          <div class="sensor-card" id="card-lm35">
+            <span class="card-icon">🌡</span>
+            <span class="card-title">Suhu LM35</span>
+            <div class="card-body">
+              <span class="card-value" id="val-lm35">--</span>
+              <span class="card-unit">°C</span>
+            </div>
+            <span class="card-range">Normal: 23 – 30 °C</span>
+            <div class="card-bar"><div class="card-bar-fill" id="bar-lm35"></div></div>
+          </div>
+          <div class="sensor-card" id="card-dht">
+            <span class="card-icon">🌡</span>
+            <span class="card-title">Suhu DHT22</span>
+            <div class="card-body">
+              <span class="card-value" id="val-dht">--</span>
+              <span class="card-unit">°C</span>
+            </div>
+            <span class="card-range">Normal: 23 – 30 °C</span>
+            <div class="card-bar"><div class="card-bar-fill" id="bar-dht"></div></div>
+          </div>
+          <div class="sensor-card" id="card-hum">
+            <span class="card-icon">💧</span>
+            <span class="card-title">Kelembapan</span>
+            <div class="card-body">
+              <span class="card-value" id="val-hum">--</span>
+              <span class="card-unit">%</span>
+            </div>
+            <span class="card-range">Normal: 70 – 90 %</span>
+            <div class="card-bar"><div class="card-bar-fill" id="bar-hum"></div></div>
+          </div>
+          <div class="sensor-card" id="card-co2">
+            <span class="card-icon">💨</span>
+            <span class="card-title">CO₂ (MQ135)</span>
+            <div class="card-body">
+              <span class="card-value" id="val-co2">--</span>
+              <span class="card-unit">ppm</span>
+            </div>
+            <span class="card-range">Normal: 400 – 1000 ppm</span>
+            <div class="card-bar"><div class="card-bar-fill" id="bar-co2"></div></div>
+          </div>
+        </div>
+        <div class="status-row">
+          <div class="status-chip">
+            <span class="chip-label">WiFi ESP32</span>
+            <span class="chip-val" id="stat-wifi">--</span>
+          </div>
+          <div class="status-chip">
+            <span class="chip-label">SD Card</span>
+            <span class="chip-val" id="stat-sd">--</span>
+          </div>
+          <div class="status-chip">
+            <span class="chip-label">Update Terakhir</span>
+            <span class="chip-val" id="stat-lastupdate">--</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- LOGGING CONTROL -->
+      <section class="control-section">
+        <p class="section-label">Pengaturan Logging</p>
+        <div class="control-panel">
+          <div class="interval-group">
+            <label for="intervalInput">Interval Fetch Data</label>
+            <div class="input-row">
+              <input type="number" id="intervalInput" value="15" min="5" max="300" />
+              <span class="input-suffix">detik</span>
+            </div>
+          </div>
+          <div class="toggle-group">
+            <span class="toggle-label" id="loggingLabel">LOGGING AKTIF</span>
+            <label class="toggle-switch">
+              <input type="checkbox" id="loggingToggle" checked />
+              <span class="slider"></span>
+            </label>
+          </div>
+          <button class="apply-btn" id="applyInterval">Terapkan</button>
+        </div>
+      </section>
+
+      <!-- GRAFIK -->
+      <section class="chart-section">
+        <div class="chart-header">
+          <p class="section-label" style="margin:0">Grafik Sensor</p>
+          <div class="chart-switches">
+            <button class="sw-btn active" data-sensor="lm35">Suhu LM35</button>
+            <button class="sw-btn" data-sensor="dht">Suhu DHT22</button>
+            <button class="sw-btn" data-sensor="hum">Kelembapan</button>
+            <button class="sw-btn" data-sensor="co2">CO₂</button>
+          </div>
+        </div>
+        <div class="chart-wrap">
+          <canvas id="sensorChart"></canvas>
+        </div>
+      </section>
+
+      <!-- TABEL DATA -->
+      <section class="table-section">
+        <div class="table-header">
+          <p class="section-label" style="margin:0">50 Data Terakhir</p>
+          <button class="download-btn" id="downloadBtn">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+              <rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/>
+            </svg>
+            Lihat Spreadsheet
+          </button>
+        </div>
+        <div class="table-scroll">
+          <table id="dataTable">
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Tanggal</th>
+                <th>Waktu</th>
+                <th>Suhu LM35 (°C)</th>
+                <th>Suhu DHT22 (°C)</th>
+                <th>Kelembapan (%)</th>
+                <th>CO₂ (ppm)</th>
+                <th>WiFi</th>
+                <th>SD Card</th>
+              </tr>
+            </thead>
+            <tbody id="tableBody">
+              <tr><td colspan="9" class="empty-row">Memuat data...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+    </main>
+
+    <footer class="footer">
+      IoT Environmental Monitor &mdash; ESP32 + DHT22 + LM35 + MQ135
+    </footer>
+  </div>
+
+  <script src="script.js"></script>
+</body>
+</html>
